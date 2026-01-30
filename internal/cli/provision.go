@@ -115,7 +115,7 @@ func runProvision(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	printSuccess(fmt.Sprintf("\n✅ Server ready! Run 'gotzer deploy' to deploy your app."))
+	printSuccess("\n✅ Server ready! Run 'gotzer deploy' to deploy your app.")
 	printInfo(fmt.Sprintf("Server IP: %s", serverIP))
 
 	return nil

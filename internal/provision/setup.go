@@ -110,6 +110,12 @@ func (p *Provisioner) createSystemdService(ctx context.Context) error {
 	}
 	envSection := strings.Join(envLines, "\n")
 
+	// Build command string
+	execCmd := fmt.Sprintf("%s/%s", cfg.Deploy.RemotePath, cfg.Build.Output)
+	if len(cfg.Deploy.Command) > 0 {
+		execCmd = fmt.Sprintf("%s %s", execCmd, strings.Join(cfg.Deploy.Command, " "))
+	}
+
 	serviceContent := fmt.Sprintf(`[Unit]
 Description=%s
 After=network.target docker.service
@@ -119,7 +125,7 @@ Type=simple
 User=%s
 Group=%s
 WorkingDirectory=%s
-ExecStart=%s/%s
+ExecStart=%s
 Restart=always
 RestartSec=5
 %s
@@ -127,7 +133,7 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 `, cfg.Name, cfg.Deploy.User, cfg.Deploy.User, cfg.Deploy.RemotePath,
-		cfg.Deploy.RemotePath, cfg.Build.Output, envSection)
+		execCmd, envSection)
 
 	// Write service file
 	servicePath := fmt.Sprintf("/etc/systemd/system/%s.service", cfg.Deploy.ServiceName)

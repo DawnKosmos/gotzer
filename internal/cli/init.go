@@ -39,10 +39,10 @@ description: "My Go application"
 # Hetzner Server Configuration
 server:
   name: %s-server
-  location: fsn1                    # fsn1, nbg1, hel1, ash, hil
-  type: cpx11                       # Shared vCPU: cpx11, cpx21, cpx31 | ARM: cax11, cax21
+  location: nbg1                    # fsn1, nbg1, hel1, ash, hil
+  type: cax11                       # Shared ARM64: cax11 is the cheapest (~€3.79/mo)
   image: ubuntu-24.04
-  architecture: x64                 # x64 or arm64
+  architecture: arm64               # x64 or arm64
 
 # Go Build Configuration
 build:

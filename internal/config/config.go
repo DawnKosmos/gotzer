@@ -38,6 +38,7 @@ type DeployConfig struct {
 	RemotePath  string            `yaml:"remote_path"`
 	ServiceName string            `yaml:"service_name"`
 	User        string            `yaml:"user"`
+	Command     []string          `yaml:"command,omitempty"`
 	Env         map[string]string `yaml:"env,omitempty"`
 }
 
