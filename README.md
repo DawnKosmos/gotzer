@@ -14,7 +14,7 @@ A Go CLI tool + library for deploying Go applications to Hetzner Cloud servers.
 ## Installation
 
 ```bash
-go install github.com/DawnKosmos/gotzer/cmd/gotzer@latest
+go install github.com/DawnKosmos/gotzer@latest
 ```
 
 Or build from source:
@@ -22,7 +22,7 @@ Or build from source:
 ```bash
 git clone https://github.com/DawnKosmos/gotzer
 cd gotzer
-go build -o gotzer ./cmd/gotzer
+go build -o gotzer .
 ```
 
 ## Quick Start
