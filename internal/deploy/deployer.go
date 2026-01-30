@@ -63,11 +63,11 @@ func (d *Deployer) Deploy(ctx context.Context) error {
 		return fmt.Errorf("upload failed: %w", err)
 	}
 
-	// Move to final location with sudo
-	_, err = d.SSHClient.Run(ctx, fmt.Sprintf("sudo mv %s %s && sudo chmod +x %s",
-		tempPath, remoteBinaryPath, remoteBinaryPath))
+	// Move to final location with sudo and set permissions
+	_, err = d.SSHClient.Run(ctx, fmt.Sprintf("sudo mv %s %s && sudo chmod +x %s && sudo setcap 'cap_net_bind_service=+ep' %s",
+		tempPath, remoteBinaryPath, remoteBinaryPath, remoteBinaryPath))
 	if err != nil {
-		return fmt.Errorf("failed to move binary: %w", err)
+		return fmt.Errorf("failed to move or configure binary: %w", err)
 	}
 
 	fmt.Printf("  → Uploaded to %s\n", remoteBinaryPath)

@@ -32,7 +32,7 @@ func (p *Provisioner) Setup(ctx context.Context) error {
 
 	// Step 1: Update system
 	fmt.Println("\n📦 Updating system packages...")
-	if _, err := p.SSHClient.Run(ctx, "sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y"); err != nil {
+	if _, err := p.SSHClient.Run(ctx, "sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && sudo apt-get install -y libcap2-bin"); err != nil {
 		return fmt.Errorf("failed to update system: %w", err)
 	}
 
