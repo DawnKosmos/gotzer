@@ -9,6 +9,7 @@ import (
 	"github.com/DawnKosmos/gotzer/internal/build"
 	"github.com/DawnKosmos/gotzer/internal/config"
 	"github.com/DawnKosmos/gotzer/internal/ssh"
+	"github.com/DawnKosmos/gotzer/internal/systemd"
 )
 
 // Deployer handles application deployment
@@ -71,7 +72,13 @@ func (d *Deployer) Deploy(ctx context.Context) error {
 
 	fmt.Printf("  → Uploaded to %s\n", remoteBinaryPath)
 
-	// Step 4: Start the service
+	// Step 4: Update service configuration
+	fmt.Println("\n⚙️ Updating service configuration...")
+	if err := systemd.Configure(ctx, d.SSHClient, d.Config); err != nil {
+		return fmt.Errorf("failed to update service config: %w", err)
+	}
+
+	// Step 5: Start the service
 	fmt.Println("\n🚀 Starting service...")
 	_, err = d.SSHClient.Run(ctx, fmt.Sprintf("sudo systemctl start %s", cfg.Deploy.ServiceName))
 	if err != nil {
