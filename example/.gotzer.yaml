@@ -1,0 +1,51 @@
+# Gotzer Configuration
+# See: https://github.com/DawnKosmos/gotzer
+
+name: example
+description: "My Go application"
+
+# Hetzner Server Configuration
+server:
+  name: example-server
+  location: nbg1                    # fsn1, nbg1, hel1, ash, hil
+  type: cax11                       # Shared ARM64: cax11 is the cheapest (~€3.79/mo)
+  image: ubuntu-24.04
+  architecture: arm64               # Multi-arch support! 🚀
+
+# Go Build Configuration
+build:
+  main: ./cmd/server                # Path to main package
+  output: app                       # Binary name
+  ldflags: "-s -w"                  # Strip debug info for smaller binary
+
+# Deployment Configuration
+deploy:
+  remote_path: /opt/apps/example
+  service_name: example
+  user: app
+  env:
+    APP_ENV: production
+    # DATABASE_URL: "postgres://user:pass@localhost:5432/myapp?sslmode=disable"
+
+# Docker Services (optional)
+services:
+  postgres:
+    enabled: false
+    image: postgres:16
+    port: 5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    env:
+      POSTGRES_DB: myapp
+      POSTGRES_USER: myapp
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+
+  typesense:
+    enabled: false
+    image: typesense/typesense:27.1
+    port: 8108
+    volumes:
+      - typesense-data:/data
+    env:
+      TYPESENSE_API_KEY: "${TYPESENSE_API_KEY}"
+      TYPESENSE_DATA_DIR: /data

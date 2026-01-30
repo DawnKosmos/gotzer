@@ -1,0 +1,33 @@
+# Binaries
+gotzer
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+app
+
+# Build artifacts
+bin/
+dist/
+/tmp/
+
+# Dependency directories
+vendor/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Go specific
+go.work
+go.work.sum
+
+# Local Gotzer data (if any)
+.gotzer.local.yaml
