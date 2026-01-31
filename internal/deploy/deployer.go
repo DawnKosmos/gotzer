@@ -85,11 +85,16 @@ func (d *Deployer) Deploy(ctx context.Context) error {
 		return fmt.Errorf("failed to start service: %w", err)
 	}
 
-	// Step 5: Check service status
+	// Step 6: Check service status
 	fmt.Println("\n✅ Checking status...")
 	output, err := d.SSHClient.Run(ctx, fmt.Sprintf("systemctl is-active %s", cfg.Deploy.ServiceName))
 	if err != nil {
-		return fmt.Errorf("service failed to start: %w", err)
+		// If it failed, try to get logs to show why
+		logs, logErr := d.SSHClient.Run(ctx, fmt.Sprintf("sudo journalctl -u %s -n 10 --no-pager", cfg.Deploy.ServiceName))
+		if logErr == nil {
+			fmt.Printf("\n❌ Service failed to start. Last 10 lines of logs:\n%s\n", logs)
+		}
+		return fmt.Errorf("service failed to start (status %v): %w", err, err)
 	}
 	fmt.Printf("  → Service status: %s", output)
 
