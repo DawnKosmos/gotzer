@@ -27,9 +27,11 @@ var provisionCmd = &cobra.Command{
 }
 
 var sshKeyName string
+var provisionUpdate bool
 
 func init() {
 	provisionCmd.Flags().StringVar(&sshKeyName, "ssh-key", "", "SSH key name in Hetzner (uses first available if not set)")
+	provisionCmd.Flags().BoolVar(&provisionUpdate, "update", false, "Update an existing server (sync configuration and services)")
 }
 
 func runProvision(cmd *cobra.Command, args []string) error {
@@ -54,45 +56,49 @@ func runProvision(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	var serverIP string
 	if existing != nil {
-		return fmt.Errorf("server %s already exists (IP: %s). Run 'gotzer deploy' to update the app",
-			cfg.Server.Name, existing.PublicNet.IPv4.IP.String())
-	}
-
-	// Get SSH key
-	var sshKeys []string
-	if sshKeyName != "" {
-		sshKeys = []string{sshKeyName}
+		if !provisionUpdate {
+			return fmt.Errorf("server %s already exists (IP: %s). Use 'gotzer provision --update' to sync services",
+				cfg.Server.Name, existing.PublicNet.IPv4.IP.String())
+		}
+		serverIP = existing.PublicNet.IPv4.IP.String()
+		printInfo(fmt.Sprintf("Using existing server %s (IP: %s)...", cfg.Server.Name, serverIP))
 	} else {
-		// Use first available SSH key
-		keys, err := hc.ListSSHKeys(ctx)
+		// New server creation logic...
+		// Get SSH key
+		var sshKeys []string
+		if sshKeyName != "" {
+			sshKeys = []string{sshKeyName}
+		} else {
+			keys, err := hc.ListSSHKeys(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to list SSH keys: %w", err)
+			}
+			if len(keys) == 0 {
+				return fmt.Errorf("no SSH keys found")
+			}
+			sshKeys = []string{keys[0].Name}
+			printInfo(fmt.Sprintf("Using SSH key: %s", keys[0].Name))
+		}
+
+		printInfo(fmt.Sprintf("Creating server %s (%s in %s)...",
+			cfg.Server.Name, cfg.Server.Type, cfg.Server.Location))
+
+		server, err := hc.CreateServer(ctx, hetzner.ServerOpts{
+			Name:        cfg.Server.Name,
+			Location:    cfg.Server.Location,
+			ServerType:  cfg.Server.Type,
+			Image:       cfg.Server.Image,
+			SSHKeyNames: sshKeys,
+		})
 		if err != nil {
-			return fmt.Errorf("failed to list SSH keys: %w", err)
+			return err
 		}
-		if len(keys) == 0 {
-			return fmt.Errorf("no SSH keys found. Add one in Hetzner Cloud Console first")
-		}
-		sshKeys = []string{keys[0].Name}
-		printInfo(fmt.Sprintf("Using SSH key: %s", keys[0].Name))
+		serverIP = server.PublicNet.IPv4.IP.String()
+		printSuccess(fmt.Sprintf("Server created! IP: %s", serverIP))
 	}
-
-	// Create server
-	printInfo(fmt.Sprintf("Creating server %s (%s in %s)...",
-		cfg.Server.Name, cfg.Server.Type, cfg.Server.Location))
-
-	server, err := hc.CreateServer(ctx, hetzner.ServerOpts{
-		Name:        cfg.Server.Name,
-		Location:    cfg.Server.Location,
-		ServerType:  cfg.Server.Type,
-		Image:       cfg.Server.Image,
-		SSHKeyNames: sshKeys,
-	})
-	if err != nil {
-		return err
-	}
-
-	serverIP := server.PublicNet.IPv4.IP.String()
-	printSuccess(fmt.Sprintf("Server created! IP: %s", serverIP))
 
 	// Wait for SSH to be available
 	printInfo("Waiting for SSH to be available...")
