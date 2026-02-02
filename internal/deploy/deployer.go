@@ -33,10 +33,13 @@ func (d *Deployer) Deploy(ctx context.Context) error {
 	// Step 1: Build the binary
 	fmt.Println("\n📦 Building application...")
 	builder := build.NewBuilder(
+		cfg.Build.Type,
 		cfg.Build.Main,
 		cfg.Build.Output,
 		cfg.Server.GOARCH(),
 	)
+	builder.Command = cfg.Build.Command
+	builder.Dir = cfg.Build.Dir
 	builder.LDFlags = cfg.Build.LDFlags
 	builder.Env = cfg.Build.Env
 
@@ -53,9 +56,29 @@ func (d *Deployer) Deploy(ctx context.Context) error {
 		fmt.Printf("  ⚠ Note: %v\n", stopErr)
 	}
 
-	// Step 3: Upload the binary
-	fmt.Println("\n📤 Uploading binary...")
-	remoteBinaryPath := filepath.Join(cfg.Deploy.RemotePath, cfg.Build.Output)
+	// Step 3: Upload the application
+	fmt.Println("\n📤 Uploading application...")
+	remotePath := cfg.Deploy.RemotePath
+
+	if cfg.Deploy.Type == "static" {
+		if err := d.SSHClient.UploadDir(ctx, binaryPath, remotePath); err != nil {
+			return fmt.Errorf("static upload failed: %w", err)
+		}
+		fmt.Printf("  → Uploaded directory to %s\n", remotePath)
+
+		// Set permissions
+		_, err = d.SSHClient.Run(ctx, fmt.Sprintf("sudo chown -R %s:%s %s && sudo chmod -R 755 %s",
+			cfg.Deploy.User, cfg.Deploy.User, remotePath, remotePath))
+		if err != nil {
+			return fmt.Errorf("failed to set permissions: %w", err)
+		}
+
+		fmt.Println("\n🎉 Static deployment complete!")
+		return nil
+	}
+
+	// Legacy Go upload logic
+	remoteBinaryPath := filepath.Join(remotePath, cfg.Build.Output)
 
 	// Upload to temp location first
 	tempPath := fmt.Sprintf("/tmp/%s", cfg.Build.Output)

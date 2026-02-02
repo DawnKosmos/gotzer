@@ -28,13 +28,17 @@ type ServerConfig struct {
 }
 
 type BuildConfig struct {
+	Type    string            `yaml:"type"` // "go" or "static"
 	Main    string            `yaml:"main"`
 	Output  string            `yaml:"output"`
+	Command string            `yaml:"command,omitempty"` // for static builds
+	Dir     string            `yaml:"dir,omitempty"`     // for static builds
 	LDFlags string            `yaml:"ldflags,omitempty"`
 	Env     map[string]string `yaml:"env,omitempty"`
 }
 
 type DeployConfig struct {
+	Type        string            `yaml:"type"` // "service" or "static"
 	RemotePath  string            `yaml:"remote_path"`
 	ServiceName string            `yaml:"service_name"`
 	User        string            `yaml:"user"`
@@ -82,6 +86,12 @@ func Load(path string) (*Config, error) {
 	// Set defaults
 	if config.Server.Architecture == "" {
 		config.Server.Architecture = "x64"
+	}
+	if config.Build.Type == "" {
+		config.Build.Type = "go"
+	}
+	if config.Deploy.Type == "" {
+		config.Deploy.Type = "service"
 	}
 	if config.Deploy.User == "" {
 		config.Deploy.User = "app"

@@ -3,9 +3,9 @@ package provision
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/DawnKosmos/gotzer/internal/config"
+	"github.com/DawnKosmos/gotzer/internal/docker"
 	"github.com/DawnKosmos/gotzer/internal/ssh"
 	"github.com/DawnKosmos/gotzer/internal/systemd"
 )
@@ -124,7 +124,7 @@ func (p *Provisioner) hasDockerServices() bool {
 func (p *Provisioner) setupDockerServices(ctx context.Context) error {
 	cfg := p.Config
 
-	composeContent := p.generateDockerCompose()
+	composeContent := docker.GenerateCompose(cfg)
 	if composeContent == "" {
 		return nil
 	}
@@ -148,74 +148,4 @@ func (p *Provisioner) setupDockerServices(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// generateDockerCompose creates the docker-compose.yml content
-func (p *Provisioner) generateDockerCompose() string {
-	cfg := p.Config
-	services := cfg.Services
-
-	var builder strings.Builder
-	builder.WriteString("services:\n")
-
-	if services.Postgres != nil && services.Postgres.Enabled {
-		builder.WriteString(p.formatService("postgres", services.Postgres))
-	}
-
-	if services.Typesense != nil && services.Typesense.Enabled {
-		builder.WriteString(p.formatService("typesense", services.Typesense))
-	}
-
-	if services.Redis != nil && services.Redis.Enabled {
-		builder.WriteString(p.formatService("redis", services.Redis))
-	}
-
-	for _, svc := range services.Custom {
-		if svc.Enabled {
-			builder.WriteString(p.formatService("custom", &svc))
-		}
-	}
-
-	// Add volumes section
-	builder.WriteString("\nvolumes:\n")
-	if services.Postgres != nil && services.Postgres.Enabled {
-		builder.WriteString("  pgdata:\n")
-	}
-	if services.Typesense != nil && services.Typesense.Enabled {
-		builder.WriteString("  typesense-data:\n")
-	}
-	if services.Redis != nil && services.Redis.Enabled {
-		builder.WriteString("  redis-data:\n")
-	}
-
-	return builder.String()
-}
-
-// formatService formats a single service for docker-compose
-func (p *Provisioner) formatService(name string, svc *config.ServiceConfig) string {
-	var builder strings.Builder
-
-	builder.WriteString(fmt.Sprintf("  %s:\n", name))
-	builder.WriteString(fmt.Sprintf("    image: %s\n", svc.Image))
-	builder.WriteString("    restart: always\n")
-
-	if svc.Port > 0 {
-		builder.WriteString(fmt.Sprintf("    ports:\n      - \"%d:%d\"\n", svc.Port, svc.Port))
-	}
-
-	if len(svc.Volumes) > 0 {
-		builder.WriteString("    volumes:\n")
-		for _, vol := range svc.Volumes {
-			builder.WriteString(fmt.Sprintf("      - %s\n", vol))
-		}
-	}
-
-	if len(svc.Env) > 0 {
-		builder.WriteString("    environment:\n")
-		for k, v := range svc.Env {
-			builder.WriteString(fmt.Sprintf("      %s: \"%s\"\n", k, v))
-		}
-	}
-
-	return builder.String()
 }

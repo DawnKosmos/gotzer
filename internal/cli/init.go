@@ -44,14 +44,25 @@ server:
   image: ubuntu-24.04
   architecture: arm64               # x64 or arm64
 
-# Go Build Configuration
+# Go Build Configuration (Default)
 build:
+  type: go
   main: ./cmd/server                # Path to main package
   output: app                       # Binary name
   ldflags: "-s -w"                  # Strip debug info for smaller binary
 
+# Example: Static Frontend Configuration
+# build:
+#   type: static
+#   command: "npm install && npm run build"
+#   dir: "./dist"
+# deploy:
+#   type: static
+#   remote_path: /var/www/html
+
 # Deployment Configuration
 deploy:
+  type: service
   remote_path: /opt/apps/%s
   service_name: %s
   user: app

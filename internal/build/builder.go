@@ -11,8 +11,11 @@ import (
 
 // Builder handles Go cross-compilation
 type Builder struct {
+	Type    string // "go" or "static"
 	MainPkg string
 	Output  string
+	Command string // for static builds
+	Dir     string // for static builds
 	GOOS    string
 	GOARCH  string
 	LDFlags string
@@ -20,8 +23,9 @@ type Builder struct {
 }
 
 // NewBuilder creates a new builder for the target architecture
-func NewBuilder(mainPkg, output, goarch string) *Builder {
+func NewBuilder(buildType, mainPkg, output, goarch string) *Builder {
 	return &Builder{
+		Type:    buildType,
 		MainPkg: mainPkg,
 		Output:  output,
 		GOOS:    "linux",
@@ -38,6 +42,31 @@ func (b *Builder) Build(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("failed to create temp dir: %w", err)
 	}
 
+	if b.Type == "static" {
+		fmt.Printf("Building static project...\n")
+		fmt.Printf("  → %s\n", b.Command)
+
+		cmd := exec.CommandContext(ctx, "sh", "-c", b.Command)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Env = os.Environ()
+		for k, v := range b.Env {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+		}
+
+		if err := cmd.Run(); err != nil {
+			return "", fmt.Errorf("static build failed: %w", err)
+		}
+
+		// Verify output directory
+		if _, err := os.Stat(b.Dir); err != nil {
+			return "", fmt.Errorf("build output directory %s not found: %w", b.Dir, err)
+		}
+
+		return b.Dir, nil
+	}
+
+	// Go build logic...
 	outputPath := filepath.Join(tmpDir, b.Output)
 
 	// Build the command
