@@ -47,16 +47,18 @@ type DeployConfig struct {
 }
 
 type ServicesConfig struct {
-	Postgres  *ServiceConfig  `yaml:"postgres,omitempty"`
-	Typesense *ServiceConfig  `yaml:"typesense,omitempty"`
-	Redis     *ServiceConfig  `yaml:"redis,omitempty"`
-	Custom    []ServiceConfig `yaml:"custom,omitempty"`
+	Postgres   *ServiceConfig  `yaml:"postgres,omitempty"`
+	Typesense  *ServiceConfig  `yaml:"typesense,omitempty"`
+	Redis      *ServiceConfig  `yaml:"redis,omitempty"`
+	Centrifugo *ServiceConfig  `yaml:"centrifugo,omitempty"`
+	Custom     []ServiceConfig `yaml:"custom,omitempty"`
 }
 
 type ServiceConfig struct {
 	Enabled bool              `yaml:"enabled"`
 	Image   string            `yaml:"image"`
 	Port    int               `yaml:"port"`
+	Command string            `yaml:"command,omitempty"`
 	Volumes []string          `yaml:"volumes,omitempty"`
 	Env     map[string]string `yaml:"env,omitempty"`
 }

@@ -25,6 +25,9 @@ func GenerateCompose(cfg *config.Config) string {
 	if services.Redis != nil && services.Redis.Enabled {
 		builder.WriteString(formatService("redis", services.Redis))
 	}
+	if services.Centrifugo != nil && services.Centrifugo.Enabled {
+		builder.WriteString(formatService("centrifugo", services.Centrifugo))
+	}
 
 	for _, svc := range services.Custom {
 		if svc.Enabled {
@@ -54,6 +57,10 @@ func GenerateCompose(cfg *config.Config) string {
 	if services.Redis != nil && services.Redis.Enabled {
 		builder.WriteString("  redis-data:\n")
 	}
+	if services.Centrifugo != nil && services.Centrifugo.Enabled {
+		// Centrifugo usually doesn't need a volume for data in simple setups,
+		// but we could add it if needed.
+	}
 
 	return builder.String()
 }
@@ -65,6 +72,10 @@ func formatService(name string, svc *config.ServiceConfig) string {
 	builder.WriteString(fmt.Sprintf("  %s:\n", name))
 	builder.WriteString(fmt.Sprintf("    image: %s\n", svc.Image))
 	builder.WriteString("    restart: always\n")
+
+	if svc.Command != "" {
+		builder.WriteString(fmt.Sprintf("    command: %s\n", svc.Command))
+	}
 
 	if svc.Port > 0 {
 		builder.WriteString(fmt.Sprintf("    ports:\n      - \"%d:%d\"\n", svc.Port, svc.Port))
