@@ -25,6 +25,7 @@ type ServerConfig struct {
 	Type         string `yaml:"type"`
 	Image        string `yaml:"image"`
 	Architecture string `yaml:"architecture"` // x64 or arm64
+	FreePorts    []int  `yaml:"free_ports,omitempty"`
 }
 
 type BuildConfig struct {
@@ -58,6 +59,7 @@ type ServiceConfig struct {
 	Enabled bool              `yaml:"enabled"`
 	Image   string            `yaml:"image"`
 	Port    int               `yaml:"port"`
+	BindIP  string            `yaml:"bind_ip,omitempty"`
 	Command string            `yaml:"command,omitempty"`
 	Volumes []string          `yaml:"volumes,omitempty"`
 	Env     map[string]string `yaml:"env,omitempty"`

@@ -3,6 +3,7 @@ package provision
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/DawnKosmos/gotzer/internal/config"
 	"github.com/DawnKosmos/gotzer/internal/docker"
@@ -29,6 +30,11 @@ func (p *Provisioner) Setup(ctx context.Context) error {
 	cfg := p.Config
 
 	fmt.Println("\n🔧 Setting up server...")
+
+	// Step 0: Check free ports
+	if len(cfg.Server.FreePorts) > 0 {
+		p.checkFreePorts(ctx)
+	}
 
 	// Step 1: Update system
 	fmt.Println("\n📦 Updating system packages...")
@@ -148,4 +154,20 @@ func (p *Provisioner) setupDockerServices(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (p *Provisioner) checkFreePorts(ctx context.Context) {
+	fmt.Println("\n🔍 Checking free ports...")
+	out, err := p.SSHClient.Run(ctx, "ss -tuln")
+	if err != nil {
+		fmt.Printf("  ⚠ Could not check free ports: %v\n", err)
+		return
+	}
+
+	for _, port := range p.Config.Server.FreePorts {
+		re := regexp.MustCompile(fmt.Sprintf(":%d(\\s|$)", port))
+		if re.MatchString(out) {
+			fmt.Printf("  ⚠ Warning: Port %d is already in use!\n", port)
+		}
+	}
 }

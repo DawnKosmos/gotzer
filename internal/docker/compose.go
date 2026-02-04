@@ -78,7 +78,11 @@ func formatService(name string, svc *config.ServiceConfig) string {
 	}
 
 	if svc.Port > 0 {
-		builder.WriteString(fmt.Sprintf("    ports:\n      - \"%d:%d\"\n", svc.Port, svc.Port))
+		if svc.BindIP != "" {
+			builder.WriteString(fmt.Sprintf("    ports:\n      - \"%s:%d:%d\"\n", svc.BindIP, svc.Port, svc.Port))
+		} else {
+			builder.WriteString(fmt.Sprintf("    ports:\n      - \"%d:%d\"\n", svc.Port, svc.Port))
+		}
 	}
 
 	if len(svc.Volumes) > 0 {
