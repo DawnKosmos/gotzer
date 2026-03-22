@@ -1,0 +1,55 @@
+# Gotzer Platform Configuration Example
+# Hosts multiple apps on a single server with reverse proxy (Caddy)
+# See: https://github.com/DawnKosmos/gotzer
+
+domain: my-platform.com
+
+server:
+  name: example-platform
+  location: nbg1                    # fsn1, nbg1, hel1, ash, hil
+  type: cax11                       # ARM64 shared server
+  image: ubuntu-24.04
+  architecture: arm64
+
+# Shared Docker services (available to all apps)
+services:
+  postgres:
+    enabled: true
+    image: postgres:16
+    port: 5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    env:
+      POSTGRES_DB: platform
+      POSTGRES_USER: platform
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+
+# Applications (each gets a subdomain + systemd service)
+apps:
+  hello:
+    subdomain: hello                # → hello.my-platform.com
+    path: .                         # source directory
+    build:
+      type: go
+      main: ./cmd/server
+      output: hello
+    deploy:
+      port: 8081                    # internal port (Caddy proxies to this)
+      env:
+        APP_NAME: "Hello Web Service"
+        APP_ENV: production
+        DATABASE_URL: "postgres://platform:${POSTGRES_PASSWORD}@localhost:5432/hello?sslmode=disable"
+
+  api:
+    subdomain: api                  # → api.my-platform.com
+    path: .
+    build:
+      type: go
+      main: ./cmd/server
+      output: api
+    deploy:
+      port: 8082
+      env:
+        APP_NAME: "API Web Service"
+        APP_ENV: production
+        DATABASE_URL: "postgres://platform:${POSTGRES_PASSWORD}@localhost:5432/api?sslmode=disable"

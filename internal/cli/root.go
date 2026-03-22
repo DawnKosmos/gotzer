@@ -51,6 +51,7 @@ func init() {
 	rootCmd.AddCommand(restartCmd)
 	rootCmd.AddCommand(localCmd)
 	rootCmd.AddCommand(destroyCmd)
+	rootCmd.AddCommand(platformCmd)
 }
 
 func printSuccess(msg string) {

@@ -47,7 +47,9 @@ func (d *Deployer) Deploy(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
-	defer os.RemoveAll(filepath.Dir(binaryPath)) // Cleanup temp dir
+	if cfg.Build.Type != "static" {
+		defer os.RemoveAll(filepath.Dir(binaryPath)) // Cleanup temp dir
+	}
 
 	// Step 2: Stop the service
 	fmt.Println("\n🛑 Stopping service...")

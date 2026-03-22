@@ -43,6 +43,7 @@ server:
   type: cax11                       # Shared ARM64: cax11 is the cheapest (~€3.79/mo)
   image: ubuntu-24.04
   architecture: arm64               # x64 or arm64
+  # free_ports: [80, 443]           # Optional: warn if these ports are already in use
 
 # Go Build Configuration (Default)
 build:

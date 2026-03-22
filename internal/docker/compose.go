@@ -7,10 +7,13 @@ import (
 	"github.com/DawnKosmos/gotzer/internal/config"
 )
 
-// GenerateCompose creates the docker-compose.yml content
+// GenerateCompose creates the docker-compose.yml content from a full Config.
 func GenerateCompose(cfg *config.Config) string {
-	services := cfg.Services
+	return GenerateComposeFromServices(&cfg.Services)
+}
 
+// GenerateComposeFromServices creates docker-compose.yml content from a ServicesConfig.
+func GenerateComposeFromServices(services *config.ServicesConfig) string {
 	var builder strings.Builder
 	builder.WriteString("services:\n")
 

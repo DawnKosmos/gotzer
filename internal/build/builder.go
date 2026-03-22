@@ -80,6 +80,10 @@ func (b *Builder) Build(ctx context.Context) (string, error) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
+	if b.Dir != "" {
+		cmd.Dir = b.Dir
+	}
+
 	// Set environment
 	env := os.Environ()
 	env = append(env, fmt.Sprintf("GOOS=%s", b.GOOS))

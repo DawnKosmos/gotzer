@@ -19,7 +19,8 @@ func Configure(ctx context.Context, sc *ssh.Client, cfg *config.Config) error {
 	envSection := strings.Join(envLines, "\n")
 
 	// Build command string
-	execCmd := fmt.Sprintf("%s/%s", cfg.Deploy.RemotePath, cfg.Build.Output)
+	binaryPath := fmt.Sprintf("%s/%s", cfg.Deploy.RemotePath, cfg.Build.Output)
+	execCmd := binaryPath
 	if len(cfg.Deploy.Command) > 0 {
 		execCmd = fmt.Sprintf("%s %s", execCmd, strings.Join(cfg.Deploy.Command, " "))
 	}

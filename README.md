@@ -73,6 +73,7 @@ server:
   type: cax11
   image: ubuntu-24.04
   architecture: arm64
+  free_ports: [80, 443]       # Optional: warn if ports are in use
 
 build:
   type: go                    # "go" (default) or "static"
