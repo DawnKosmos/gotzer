@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/DawnKosmos/gotzer/internal/config"
@@ -115,6 +116,7 @@ services:
     enabled: true
     image: postgres:16
     port: 5432
+    bind_ip: "127.0.0.1"
     volumes:
       - pgdata:/var/lib/postgresql/data
     env:
@@ -122,31 +124,48 @@ services:
       POSTGRES_USER: platform
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
 
+  typesense:
+    enabled: false
+    image: typesense/typesense:27.1
+    port: 8108
+    bind_ip: "127.0.0.1"
+    volumes:
+      - typesense-data:/data
+    env:
+      TYPESENSE_API_KEY: "${TYPESENSE_API_KEY}"
+      TYPESENSE_DATA_DIR: /data
+
+# Expose Docker services via Caddy at a subdomain (no Go app needed)
+# service_routes:
+#   - subdomain: search             # → search.example.com → localhost:8108
+#     port: 8108
+
 # Applications (each gets a subdomain + systemd service)
+# The root domain (example.com) automatically returns HTTP 200 OK.
 apps:
-  blog:
-    subdomain: blog                 # → blog.example.com
-    path: ./apps/blog               # source directory
+  api:
+    subdomain: api                  # → api.example.com
+    path: ./apps/api                # source directory
     build:
       type: go
       main: ./cmd/server
-      output: blog
+      output: api
     deploy:
       port: 8081                    # internal port (Caddy proxies to this)
       env:
-        DATABASE_URL: "postgres://platform:${POSTGRES_PASSWORD}@localhost:5432/blog?sslmode=disable"
+        DATABASE_URL: "postgres://platform:${POSTGRES_PASSWORD}@localhost:5432/api?sslmode=disable"
 
-  trading:
-    subdomain: trading              # → trading.example.com
-    path: ./apps/trading
+  web:
+    subdomain: www                  # → www.example.com
+    path: ./apps/web                # source directory containing package.json
     build:
-      type: go
-      main: ./cmd/server
-      output: trading
-    deploy:
-      port: 8082
+      type: static
+      command: "npm install && npm run build"
+      dir: dist                     # output directory after build
       env:
-        DATABASE_URL: "postgres://platform:${POSTGRES_PASSWORD}@localhost:5432/trading?sslmode=disable"
+        VITE_API_URL: "https://api.example.com"
+    deploy:
+      type: static                  # Caddy serves files directly (no systemd service)
 `
 
 	if err := os.WriteFile(configPath, []byte(template), 0644); err != nil {
@@ -248,9 +267,13 @@ func runPlatformProvision(cmd *cobra.Command, args []string) error {
 	printSuccess(fmt.Sprintf("Platform ready at %s!", cfg.Domain))
 	printInfo(fmt.Sprintf("Server IP: %s", serverIP))
 	printInfo("⚠️  Remember to set DNS records:")
+	fmt.Printf("   %s → %s  (root domain)\n", cfg.Domain, serverIP)
 	for _, name := range cfg.SortedAppNames() {
 		app := cfg.Apps[name]
 		fmt.Printf("   %s.%s → %s\n", app.Subdomain, cfg.Domain, serverIP)
+	}
+	for _, route := range cfg.ServiceRoutes {
+		fmt.Printf("   %s.%s → %s  (service route)\n", route.Subdomain, cfg.Domain, serverIP)
 	}
 
 	return nil
@@ -348,12 +371,24 @@ func runPlatformStatus(cmd *cobra.Command, args []string) error {
 		fmt.Println("────────────────────────────────────")
 		for _, name := range cfg.SortedAppNames() {
 			app := cfg.Apps[name]
+			if app.Deploy.Type == "static" {
+				fmt.Printf("  %-15s %s.%s  [static/caddy]\n", name, app.Subdomain, cfg.Domain)
+				continue
+			}
 			output, err := sshClient.Run(ctx, fmt.Sprintf("systemctl is-active %s 2>/dev/null || echo 'inactive'", name))
 			status := "unknown"
 			if err == nil {
-				status = output
+				status = strings.TrimSpace(output)
 			}
-			fmt.Printf("  %-15s %s.%s → :%d  [%s]", name, app.Subdomain, cfg.Domain, app.Deploy.Port, status)
+			fmt.Printf("  %-15s %s.%s → :%d  [%s]\n", name, app.Subdomain, cfg.Domain, app.Deploy.Port, status)
+		}
+
+		if len(cfg.ServiceRoutes) > 0 {
+			fmt.Println("\n🔀 Service Routes")
+			fmt.Println("────────────────────────────────────")
+			for _, route := range cfg.ServiceRoutes {
+				fmt.Printf("  %s.%s → localhost:%d\n", route.Subdomain, cfg.Domain, route.Port)
+			}
 		}
 
 		// Docker services

@@ -44,7 +44,13 @@ func (d *PlatformDeployer) DeployApp(ctx context.Context, appName string) error 
 		return fmt.Errorf("app %q not found in platform config", appName)
 	}
 
-	remotePath := d.Config.AppRemotePath(appName)
+	// Resolve remote path: static apps go to /var/www/<name>, services to /opt/apps/<name>
+	var remotePath string
+	if app.Deploy.Type == "static" {
+		remotePath = app.Deploy.RemotePath
+	} else {
+		remotePath = d.Config.AppRemotePath(appName)
+	}
 
 	// Step 1: Build
 	fmt.Println("\n📦 Building application...")
@@ -81,34 +87,38 @@ func (d *PlatformDeployer) DeployApp(ctx context.Context, appName string) error 
 		defer os.RemoveAll(filepath.Dir(binaryPath))
 	}
 
-	// Step 2: Stop service
-	fmt.Println("\n🛑 Stopping service...")
-	_, _ = d.SSHClient.Run(ctx, fmt.Sprintf("sudo systemctl stop %s 2>/dev/null || true", appName))
-
-	// Step 3: Upload
-	fmt.Println("\n📤 Uploading application...")
-	if app.Build.Type == "static" {
+	if app.Deploy.Type == "static" {
+		// Step 2 (static): upload files directly — Caddy serves them, no systemd needed
+		fmt.Println("\n📤 Uploading static files...")
 		if err := d.SSHClient.UploadDir(ctx, binaryPath, remotePath); err != nil {
 			return fmt.Errorf("static upload failed: %w", err)
 		}
 		_, _ = d.SSHClient.Run(ctx, fmt.Sprintf("sudo chown -R app:app %s && sudo chmod -R 755 %s", remotePath, remotePath))
-		fmt.Printf("  → Uploaded directory to %s\n", remotePath)
-	} else {
-		remoteBinaryPath := filepath.Join(remotePath, app.Build.Output)
-		tempPath := fmt.Sprintf("/tmp/%s", app.Build.Output)
-
-		if err := d.SSHClient.Upload(ctx, binaryPath, tempPath); err != nil {
-			return fmt.Errorf("upload failed: %w", err)
-		}
-
-		_, err = d.SSHClient.Run(ctx, fmt.Sprintf(
-			"sudo mv %s %s && sudo chmod +x %s && sudo chown app:app %s && sudo setcap 'cap_net_bind_service=+ep' %s",
-			tempPath, remoteBinaryPath, remoteBinaryPath, remoteBinaryPath, remoteBinaryPath))
-		if err != nil {
-			return fmt.Errorf("failed to install binary: %w", err)
-		}
-		fmt.Printf("  → Uploaded to %s\n", remoteBinaryPath)
+		fmt.Printf("  → Uploaded to %s\n", remotePath)
+		fmt.Printf("✅ %s deployed successfully! (served by Caddy at %s.%s)\n", appName, app.Subdomain, d.Config.Domain)
+		return nil
 	}
+
+	// Step 2: Stop service
+	fmt.Println("\n🛑 Stopping service...")
+	_, _ = d.SSHClient.Run(ctx, fmt.Sprintf("sudo systemctl stop %s 2>/dev/null || true", appName))
+
+	// Step 3: Upload binary
+	fmt.Println("\n📤 Uploading application...")
+	remoteBinaryPath := filepath.Join(remotePath, app.Build.Output)
+	tempPath := fmt.Sprintf("/tmp/%s", app.Build.Output)
+
+	if err := d.SSHClient.Upload(ctx, binaryPath, tempPath); err != nil {
+		return fmt.Errorf("upload failed: %w", err)
+	}
+
+	_, err = d.SSHClient.Run(ctx, fmt.Sprintf(
+		"sudo mv %s %s && sudo chmod +x %s && sudo chown app:app %s && sudo setcap 'cap_net_bind_service=+ep' %s",
+		tempPath, remoteBinaryPath, remoteBinaryPath, remoteBinaryPath, remoteBinaryPath))
+	if err != nil {
+		return fmt.Errorf("failed to install binary: %w", err)
+	}
+	fmt.Printf("  → Uploaded to %s\n", remoteBinaryPath)
 
 	// Step 4: Start service
 	fmt.Println("\n🚀 Starting service...")

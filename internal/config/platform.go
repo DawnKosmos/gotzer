@@ -11,17 +11,25 @@ import (
 // PlatformConfig represents the .gotzer-platform.yaml configuration
 // for hosting multiple applications on a single server with reverse proxy.
 type PlatformConfig struct {
-	Domain   string                `yaml:"domain"`
-	Server   ServerConfig          `yaml:"server"`
-	Services ServicesConfig        `yaml:"services,omitempty"`
-	Apps     map[string]*AppConfig `yaml:"apps"`
+	Domain        string                `yaml:"domain"`
+	Server        ServerConfig          `yaml:"server"`
+	Services      ServicesConfig        `yaml:"services,omitempty"`
+	ServiceRoutes []ServiceRoute        `yaml:"service_routes,omitempty"`
+	Apps          map[string]*AppConfig `yaml:"apps"`
+}
+
+// ServiceRoute exposes a Docker service (by its internal port) behind a Caddy subdomain.
+// Use this for Typesense, Centrifugo, etc. that run as Docker services but need a public URL.
+type ServiceRoute struct {
+	Subdomain string `yaml:"subdomain"` // e.g. "search" → search.yeabuddy.de
+	Port      int    `yaml:"port"`      // internal port the Docker service listens on
 }
 
 // AppConfig defines a single application within the platform.
 type AppConfig struct {
-	Subdomain string         `yaml:"subdomain"`
-	Path      string         `yaml:"path,omitempty"` // source directory, defaults to "."
-	Build     AppBuildConfig `yaml:"build"`
+	Subdomain string          `yaml:"subdomain"`
+	Path      string          `yaml:"path,omitempty"` // source directory, defaults to "."
+	Build     AppBuildConfig  `yaml:"build"`
 	Deploy    AppDeployConfig `yaml:"deploy"`
 }
 
@@ -38,9 +46,11 @@ type AppBuildConfig struct {
 
 // AppDeployConfig defines how to deploy a single application.
 type AppDeployConfig struct {
-	Port    int               `yaml:"port"`              // internal port the app listens on
-	Command []string          `yaml:"command,omitempty"` // args appended to binary
-	Env     map[string]string `yaml:"env,omitempty"`
+	Type       string            `yaml:"type,omitempty"`        // "service" (default) or "static"
+	Port       int               `yaml:"port,omitempty"`        // internal port (service apps only)
+	RemotePath string            `yaml:"remote_path,omitempty"` // override remote path (static apps)
+	Command    []string          `yaml:"command,omitempty"`     // args appended to binary
+	Env        map[string]string `yaml:"env,omitempty"`
 }
 
 // LoadPlatform reads the platform configuration from .gotzer-platform.yaml
@@ -74,7 +84,7 @@ func LoadPlatform(path string) (*PlatformConfig, error) {
 		if app.Build.Type == "" {
 			app.Build.Type = "go"
 		}
-		if app.Build.LDFlags == "" {
+		if app.Build.LDFlags == "" && app.Build.Type == "go" {
 			app.Build.LDFlags = "-s -w"
 		}
 		if app.Path == "" {
@@ -82,6 +92,16 @@ func LoadPlatform(path string) (*PlatformConfig, error) {
 		}
 		if app.Subdomain == "" {
 			app.Subdomain = name
+		}
+		if app.Deploy.Type == "" {
+			if app.Build.Type == "static" {
+				app.Deploy.Type = "static"
+			} else {
+				app.Deploy.Type = "service"
+			}
+		}
+		if app.Deploy.Type == "static" && app.Deploy.RemotePath == "" {
+			app.Deploy.RemotePath = fmt.Sprintf("/var/www/%s", name)
 		}
 	}
 

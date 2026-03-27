@@ -76,7 +76,13 @@ sudo usermod -aG docker app
 	// Step 5: Create per-app directories
 	fmt.Println("\n📁 Creating application directories...")
 	for _, name := range p.Config.SortedAppNames() {
-		remotePath := p.Config.AppRemotePath(name)
+		app := p.Config.Apps[name]
+		var remotePath string
+		if app.Deploy.Type == "static" {
+			remotePath = app.Deploy.RemotePath
+		} else {
+			remotePath = p.Config.AppRemotePath(name)
+		}
 		dirScript := fmt.Sprintf("sudo mkdir -p %s && sudo chown -R app:app %s", remotePath, remotePath)
 		if _, err := p.SSHClient.Run(ctx, dirScript); err != nil {
 			return fmt.Errorf("failed to create directory for %s: %w", name, err)
@@ -84,10 +90,14 @@ sudo usermod -aG docker app
 		fmt.Printf("  → %s\n", remotePath)
 	}
 
-	// Step 6: Create per-app systemd services
+	// Step 6: Create per-app systemd services (service apps only)
 	fmt.Println("\n⚙️  Creating systemd services...")
 	for _, name := range p.Config.SortedAppNames() {
 		app := p.Config.Apps[name]
+		if app.Deploy.Type == "static" {
+			fmt.Printf("  → %s (static, served by Caddy)\n", name)
+			continue
+		}
 		if err := p.createAppService(ctx, name, app); err != nil {
 			return fmt.Errorf("failed to create service for %s: %w", name, err)
 		}
@@ -127,7 +137,11 @@ echo "y" | sudo ufw enable
 	fmt.Printf("   Domain: %s\n", p.Config.Domain)
 	for _, name := range p.Config.SortedAppNames() {
 		app := p.Config.Apps[name]
-		fmt.Printf("   → %s.%s (port %d)\n", app.Subdomain, p.Config.Domain, app.Deploy.Port)
+		if app.Deploy.Type == "static" {
+			fmt.Printf("   → %s.%s (static)\n", app.Subdomain, p.Config.Domain)
+		} else {
+			fmt.Printf("   → %s.%s (port %d)\n", app.Subdomain, p.Config.Domain, app.Deploy.Port)
+		}
 	}
 	fmt.Println("\n   Run 'gotzer platform deploy' to deploy your apps.")
 
